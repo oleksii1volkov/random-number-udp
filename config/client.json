@@ -1,0 +1,5 @@
+{
+  "host": "localhost",
+  "port": 55555,
+  "numbers_count": 1000000
+}

@@ -20,6 +20,7 @@ class UDPConan(ConanFile):
         self.options["boost"].without_context = False
         self.options["boost"].without_coroutine = False
         self.options["boost"].without_exception = False
+        self.options["boost"].without_program_options = False
         self.options["boost"].without_system = False
 
         self.options["boost"].without_log = True
@@ -57,7 +58,6 @@ class UDPConan(ConanFile):
         self.options["boost"].without_serialization = True
         self.options["boost"].without_wserialization = True
         self.options["boost"].without_dynamic_linking = True
-        self.options["boost"].without_program_options = True
         self.options["boost"].without_stacktrace_noop = True
         self.options["boost"].without_prg_exec_monitor = True
         self.options["boost"].without_stacktrace_basic = True

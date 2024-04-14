@@ -1,3 +1,7 @@
+#include "protocol.pb.h"
+#include "server/config.hpp"
+#include "utils/options.hpp"
+
 #include <boost/asio/as_tuple.hpp>
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/co_spawn.hpp>
@@ -12,8 +16,6 @@
 #include <random>
 #include <thread>
 
-#include "protocol.pb.h"
-
 using boost::asio::as_tuple_t;
 using boost::asio::awaitable;
 using boost::asio::co_spawn;
@@ -24,38 +26,21 @@ using default_token = as_tuple_t<use_awaitable_t<>>;
 using udp_socket = default_token::as_default_on_t<udp::socket>;
 namespace this_coro = boost::asio::this_coro;
 
-inline constexpr uint32_t PROTOCOL_VERSION{1};
-inline constexpr uint32_t DATAGRAM_SIZE{508};
-
 template <typename... Args>
 void log(std::format_string<Args...> format, Args &&...args) {
     std::println(std::move(format), std::forward<Args>(args)...);
 }
 
-template <typename ContainerType, typename ValueType>
-concept PushBackContainer = requires(ContainerType c, ValueType v) {
-    { c.clear() } -> std::same_as<void>;
-    { c.reserve(size_t{}) } -> std::same_as<void>;
-    { c.push_back(v) } -> std::same_as<void>;
-};
-
-template <std::integral NumberType, PushBackContainer<NumberType> ContainerType>
-void generate_random_numbers(size_t number_count, ContainerType &numbers) {
-    if (number_count == 0) {
-        return;
-    }
-
+template <std::integral NumberType>
+void add_random_numbers(auto numbers, size_t number_count) {
     std::random_device device;
     std::mt19937 generator{device()};
-    std::uniform_int_distribution<> distribution{
-        std::numeric_limits<int32_t>::min(),
-        std::numeric_limits<int32_t>::max()};
-
-    numbers.clear();
-    numbers.reserve(number_count);
+    std::uniform_int_distribution<NumberType> distribution{
+        std::numeric_limits<NumberType>::min(),
+        std::numeric_limits<NumberType>::max()};
 
     while (--number_count) {
-        numbers.push_back(distribution(generator));
+        numbers->Add(distribution(generator));
     }
 }
 
@@ -87,10 +72,45 @@ public:
     }
 
 private:
+    uint64_t
+    get_max_datagram_number_count(const protocol::NumberResponse &response) {
+        return (DATAGRAM_SIZE - response.ByteSizeLong()) / sizeof(uint64_t);
+    }
+
+    uint64_t get_datagram_count(const protocol::NumberResponse &response) {
+        const auto number_count = response.number_count();
+        const auto max_datagram_number_count =
+            get_max_datagram_number_count(response);
+
+        const auto datagram_count =
+            (number_count / max_datagram_number_count) +
+            ((number_count % max_datagram_number_count) != 0 ? 1 : 0);
+
+        return datagram_count;
+    }
+
+    std::optional<uint64_t>
+    get_datagram_number_count(const protocol::NumberResponse &response) {
+        const auto datagram_count = get_datagram_count(response);
+        if (response.number_sequence() >= datagram_count) {
+            return std::nullopt;
+        }
+
+        const auto number_count = response.number_count();
+        const auto number_sequence = response.number_sequence();
+        auto datagram_number_count = get_max_datagram_number_count(response);
+
+        if (number_sequence == (datagram_count - 1)) {
+            datagram_number_count = number_count % datagram_number_count;
+        }
+
+        return datagram_number_count;
+    }
+
     protocol::NumberResponse
     create_response(const protocol::NumberRequest &request) {
         protocol::NumberResponse response;
-        response.set_protocol_verison(PROTOCOL_VERSION);
+        response.set_protocol_version(PROTOCOL_VERSION);
 
         auto error = protocol::Error::OK;
         std::string error_message;
@@ -110,7 +130,31 @@ private:
         if (error != protocol::Error::OK) {
             response.set_error(error);
             response.set_error_message(error_message);
+            return response;
         }
+
+        response.set_number_count(request.number_count());
+        response.set_number_sequence(request.number_sequence());
+        const auto datagram_count = get_datagram_count(response);
+
+        if (request.number_sequence() >= datagram_count) {
+            error = protocol::Error::SEQUENCE_NUMBER_TOO_HIGH;
+            error_message = std::format(
+                "Sequence number {} is too high. Maximum sequence number is {}",
+                request.number_sequence(), datagram_count - 1);
+        }
+
+        if (error != protocol::Error::OK) {
+            response.set_error(error);
+            response.set_error_message(error_message);
+            return response;
+        }
+
+        const auto datagram_number_count = get_datagram_number_count(response);
+        assert(datagram_number_count);
+        auto numbers = response.mutable_numbers();
+        numbers->Reserve(*datagram_number_count);
+        add_random_numbers<uint64_t>(numbers, *datagram_number_count);
 
         return response;
     }
@@ -167,20 +211,29 @@ private:
     }
 
 private:
+    static constexpr uint32_t PROTOCOL_VERSION{1};
+    static constexpr uint32_t DATAGRAM_SIZE{508};
+
     boost::asio::io_context &io_context_;
     udp_socket socket_;
     udp::endpoint sender_endpoint_;
     std::string buffer_;
 };
 
-int main() {
+int main(int argc, char *argv[]) {
     try {
-        boost::asio::io_context io_context{1};
+        const auto command_line_options =
+            utils::CommandLineOptions::extract(argc, argv);
+
+        server::Config config{command_line_options.config_path()};
+
+        boost::asio::io_context io_context;
 
         boost::asio::signal_set signals{io_context, SIGINT, SIGTERM};
         signals.async_wait([&](auto, auto) { io_context.stop(); });
 
-        NumberGeneratorServer server{io_context, 55555};
+        log("Starting server on port: {}", config.port());
+        NumberGeneratorServer server{io_context, config.port()};
         server.start();
         // co_spawn(io_context, handshake(), detached);
 

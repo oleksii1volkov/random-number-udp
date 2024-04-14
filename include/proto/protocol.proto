@@ -6,6 +6,7 @@ enum Error {
   OK = 0;
   CLIENT_TOO_NEW = 1;
   CLIENT_TOO_OLD = 2;
+  SEQUENCE_NUMBER_TOO_HIGH = 3;
 }
 
 message NumberRequest {
@@ -15,7 +16,7 @@ message NumberRequest {
 }
 
 message NumberResponse {
-  uint32 protocol_verison = 1;
+  uint32 protocol_version = 1;
   uint64 number_count = 2;
   uint64 number_sequence = 3;
   repeated uint64 numbers = 4;
