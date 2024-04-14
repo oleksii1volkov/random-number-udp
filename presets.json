@@ -1,0 +1,135 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 28,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "gcc-debug",
+      "description": "Use GCC for a Debug build with Boost",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/gcc/debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_C_COMPILER": "gcc",
+        "CMAKE_CXX_COMPILER": "g++",
+        // "Boost_INCLUDE_DIR": "D:/dev/lib/boost_1_84_0"
+      },
+      "architecture": {
+        "value": "x64",
+        "strategy": "external"
+      }
+    },
+    {
+      "name": "gcc-release",
+      "description": "Use GCC for a Release build with Boost",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/gcc/release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_C_COMPILER": "gcc",
+        "CMAKE_CXX_COMPILER": "g++",
+        // "Boost_INCLUDE_DIR": "D:/dev/lib/boost_1_84_0"
+      },
+      "architecture": {
+        "value": "x64",
+        "strategy": "external"
+      }
+    },
+    {
+      "name": "clang-debug",
+      "description": "Use Clang for a Debug build, with Boost",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/clang/debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++",
+        // "Boost_INCLUDE_DIR": "D:/dev/lib/boost_1_84_0"
+      },
+      "architecture": {
+        "value": "x64",
+        "strategy": "external"
+      }
+    },
+    {
+      "name": "clang-release",
+      "description": "Use Clang for a Release build, with Boost",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/clang/release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++",
+        // "Boost_INCLUDE_DIR": "D:/dev/lib/boost_1_84_0"
+      },
+      "architecture": {
+        "value": "x64",
+        "strategy": "external"
+      }
+    },
+    {
+      "name": "msvc-debug",
+      "description": "Use MSVC for a Debug build, with Boost",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/msvc/debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_C_COMPILER": "cl",
+        "CMAKE_CXX_COMPILER": "cl",
+        // "Boost_INCLUDE_DIR": "D:/dev/lib/boost_1_84_0"
+      },
+      "environment": {
+        "CC": "cl",
+        "CXX": "cl"
+      },
+      "architecture": {
+        "value": "x64",
+        "strategy": "external"
+      }
+    },
+    {
+      "name": "msvc-release",
+      "description": "Use MSVC for a Release build, with Boost",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/msvc/release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_C_COMPILER": "cl",
+        "CMAKE_CXX_COMPILER": "cl",
+        // "Boost_INCLUDE_DIR": "D:/dev/lib/boost_1_84_0"
+      },
+      "environment": {
+        "CC": "cl",
+        "CXX": "cl"
+      },
+      "architecture": {
+        "value": "x64",
+        "strategy": "external"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "build-default",
+      "description": "Default build using Ninja",
+      "configurePreset": "msvc-debug",
+      "jobs": 4
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "test-default",
+      "description": "Run tests after building with the default configuration",
+      "configurePreset": "msvc-debug",
+      "output": {
+        "shortProgress": true
+      },
+      "execution": {
+        "stopOnFailure": true
+      }
+    }
+  ]
+}

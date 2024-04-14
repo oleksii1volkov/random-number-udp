@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package protocol;
+
+enum Error {
+  OK = 0;
+  CLIENT_TOO_NEW = 1;
+  CLIENT_TOO_OLD = 2;
+}
+
+message NumberRequest {
+  uint32 protocol_version = 1;
+  uint64 number_count = 2;
+  uint64 number_sequence = 3;
+}
+
+message NumberResponse {
+  uint32 protocol_verison = 1;
+  uint64 number_count = 2;
+  uint64 number_sequence = 3;
+  repeated uint64 numbers = 4;
+  Error error = 5;
+  string error_message = 6;
+}

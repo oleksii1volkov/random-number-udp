@@ -1,0 +1,12 @@
+{
+    "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+    "files.associations": {
+        "*.ipp": "cpp",
+        "utility": "cpp",
+        "compare": "cpp",
+        "cstring": "cpp"
+    },
+    "C_Cpp.default.includePath": [
+        "${workspaceFolder}/build/include/proto"
+    ]
+}
