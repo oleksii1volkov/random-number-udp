@@ -30,10 +30,10 @@ protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS ${PROTO_FILES})
 
 # Server executable
 add_executable(udp_server ${SERVER_SOURCE_FILES} ${UTILS_SOURCE_FILES} ${PROTO_SRCS} ${PROTO_HDRS})
-target_include_directories(udp_server PUBLIC ${protobuf_INCLUDE_DIRS})
+target_include_directories(udp_server PUBLIC ${INCLUDE_DIR} ${Boost_INCLUDE_DIRS} ${protobuf_INCLUDE_DIRS} ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_BINARY_DIR}/include/proto)
 target_link_libraries(udp_server PRIVATE ${Boost_LIBRARIES} protobuf::libprotobuf)
 
 # Client executable
 add_executable(udp_client ${CLIENT_SOURCE_FILES} ${UTILS_SOURCE_FILES} ${PROTO_SRCS} ${PROTO_HDRS})
-target_include_directories(udp_server PUBLIC ${protobuf_INCLUDE_DIRS})
+target_include_directories(udp_server PUBLIC ${INCLUDE_DIR} ${Boost_INCLUDE_DIRS} ${protobuf_INCLUDE_DIRS} ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_BINARY_DIR}/include/proto)
 target_link_libraries(udp_client PRIVATE ${Boost_LIBRARIES} protobuf::libprotobuf)

@@ -4,27 +4,22 @@
 
 using namespace utils;
 
-CommandLineOptions CommandLineOptions::extract(int argc, char *argv[]) {
+CommandLineOptions::CommandLineOptions() : description_{"Options"} {
     namespace po = boost::program_options;
 
-    std::filesystem::path config_path;
-    std::filesystem::path logs_path;
-
-    po::options_description description("Options");
-    description.add_options()("config-path",
-                              po::value<std::filesystem::path>(&config_path),
-                              "Config file location");
-    description.add_options()("logs-path",
-                              po::value<std::filesystem::path>(&logs_path),
-                              "Location of the logs directory");
-
-    po::variables_map vm;
-    po::store(po::parse_command_line(argc, argv, description), vm);
-    po::notify(vm);
-
-    return {config_path, logs_path};
+    description_.add_options()(
+        "config-path",
+        po::value<std::filesystem::path>(&config_path_)->required(),
+        "Config file location");
+    description_.add_options()(
+        "logs-path", po::value<std::filesystem::path>(&logs_path_)->required(),
+        "Location of the logs directory");
 }
 
-CommandLineOptions::CommandLineOptions(const std::filesystem::path &config_path,
-                                       const std::filesystem::path &logs_path)
-    : config_path_{config_path}, logs_path_{logs_path} {}
+void CommandLineOptions::parse(int argc, char *argv[]) {
+    namespace po = boost::program_options;
+
+    po::variables_map vm;
+    po::store(po::parse_command_line(argc, argv, description_), vm);
+    po::notify(vm);
+}

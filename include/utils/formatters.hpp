@@ -1,4 +1,5 @@
 #include <format>
+#include <ranges>
 #include <sstream>
 
 #include "protocol.pb.h"
@@ -35,9 +36,7 @@ struct std::formatter<protocol::NumberRequest> : std::formatter<std::string> {
         std::ostringstream request_stream;
         request_stream << "{"
                        << " protocol_version: " << request.protocol_version()
-                       << ", number_count: " << request.number_count()
-                       << ", number_sequence: " << request.number_sequence()
-                       << " }";
+                       << ", number_count: " << request.number_count() << " }";
 
         return std::formatter<std::string>::format(request_stream.str(),
                                                    context);
@@ -53,21 +52,25 @@ struct std::formatter<protocol::NumberResponse> : std::formatter<std::string> {
         response_stream << "{"
                         << " protocol_version: " << response.protocol_version()
                         << ", number_count: " << response.number_count()
-                        << ", number_sequence: " << response.number_sequence()
-                        << ", numbers: ";
+                        << ", datagram_index: " << response.datagram_index()
+                        << ", datagram_count: " << response.datagram_count()
+                        << ", numbers: [";
+
+        // response_stream << "...";
 
         const auto &numbers = response.numbers();
-        bool first = true;
-        for (const auto &number : numbers) {
-            if (!first) {
-                response_stream << ", ";
+        if (!numbers.empty()) {
+            response_stream << numbers[0];
+            for (const auto &number : numbers | std::views::drop(1)) {
+                {
+                    response_stream << ", " << number;
+                }
             }
-            response_stream << number;
-            first = false;
         }
+
         response_stream << "]" << ", error: " << response.error()
-                        << ", error_message: " << response.error_message()
-                        << " }";
+                        << ", error_message: \"" << response.error_message()
+                        << "\" }";
 
         return std::formatter<std::string>::format(response_stream.str(),
                                                    context);

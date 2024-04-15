@@ -20,5 +20,6 @@ Config::Config(const std::filesystem::path &path) {
 
     port_ = root.get<uint32_t>("port");
     host_ = root.get<std::string>("host");
-    numbers_count_ = root.get<uint64_t>("numbers_count");
+    number_count_ = root.get<uint64_t>("number_count");
+    upper_bound_ = root.get<double>("upper_bound");
 }

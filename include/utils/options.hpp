@@ -1,21 +1,25 @@
 #pragma once
 
+#include <boost/program_options.hpp>
+
 #include <filesystem>
 
 namespace utils {
 
 class CommandLineOptions {
 public:
-    static CommandLineOptions extract(int argc, char *argv[]);
+    CommandLineOptions();
 
-    CommandLineOptions(const std::filesystem::path &config_path,
-                       const std::filesystem::path &logs_path);
+    void parse(int argc, char *argv[]);
 
     inline const std::filesystem::path &config_path() const {
         return config_path_;
     }
 
     inline const std::filesystem::path &logs_path() const { return logs_path_; }
+
+protected:
+    boost::program_options::options_description description_;
 
 private:
     std::filesystem::path config_path_;

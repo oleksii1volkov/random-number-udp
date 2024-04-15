@@ -9,7 +9,12 @@
             "request": "launch",
             "name": "Debug server",
             "program": "${workspaceFolder}\\build\\Debug\\udp_server.exe",
-            "args": [],
+            "args": [
+                "--config-path",
+                "${workspaceFolder}\\config\\client.json",
+                "--logs-path",
+                "${workspaceFolder}\\build\\Debug\\logs\\server"
+            ],
             "cwd": "${workspaceFolder}",
         },
         {
@@ -17,7 +22,14 @@
             "request": "launch",
             "name": "Debug client",
             "program": "${workspaceFolder}\\build\\Debug\\udp_client.exe",
-            "args": ["127.0.0.1", "55555"],
+            "args": [
+                "--config-path",
+                "${workspaceFolder}\\config\\client.json",
+                "--logs-path",
+                "${workspaceFolder}\\build\\Debug\\logs\\client",
+                "--numbers-path",
+                "${workspaceFolder}\\build\\Debug\\numbers.bin",
+            ],
             "cwd": "${workspaceFolder}",
         }
     ]
