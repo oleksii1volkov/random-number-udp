@@ -4,39 +4,16 @@
 
 #include "protocol.pb.h"
 
-// template <std::ranges::range RangeType>
-// struct std::formatter<RangeType>
-//     : std::formatter<std::ranges::range_value_t<RangeType>> {
-//     template <typename FormatContext>
-//     auto format(const RangeType &range,
-//                 FormatContext &context) const -> decltype(context.out()) {
-//         using ElementType = std::ranges::range_value_t<RangeType>;
-
-//         auto out = context.out();
-//         *out++ = '[';
-//         for (auto element_iter = range.begin(); element_iter != range.end();
-//              ++element_iter) {
-//             if (element_iter != range.begin()) {
-//                 out = std::copy(", ", &", "[2], out);
-//             }
-
-//             out = std::formatter<ElementType>::format(*element_iter,
-//             context);
-//         }
-//         *out++ = ']';
-//         return out;
-//     }
-// };
-
 template <>
-struct std::formatter<protocol::NumberRequest> : std::formatter<std::string> {
+struct std::formatter<protocol::ProtocolVersionRequest>
+    : std::formatter<std::string> {
     template <typename FormatContext>
-    auto format(const protocol::NumberRequest &request,
+    auto format(const protocol::ProtocolVersionRequest &request,
                 FormatContext &context) const {
         std::ostringstream request_stream;
-        request_stream << "{"
-                       << " protocol_version: " << request.protocol_version()
-                       << ", number_count: " << request.number_count() << " }";
+        request_stream << "{ "
+                       << "protocol_version: " << request.protocol_version()
+                       << " }";
 
         return std::formatter<std::string>::format(request_stream.str(),
                                                    context);
@@ -44,17 +21,50 @@ struct std::formatter<protocol::NumberRequest> : std::formatter<std::string> {
 };
 
 template <>
-struct std::formatter<protocol::NumberResponse> : std::formatter<std::string> {
+struct std::formatter<protocol::ProtocolVersionResponse>
+    : std::formatter<std::string> {
     template <typename FormatContext>
-    auto format(const protocol::NumberResponse &response,
+    auto format(const protocol::ProtocolVersionResponse &response,
                 FormatContext &context) const {
         std::ostringstream response_stream;
-        response_stream << "{"
-                        << " protocol_version: " << response.protocol_version()
-                        << ", number_count: " << response.number_count()
-                        << ", datagram_index: " << response.datagram_index()
-                        << ", datagram_count: " << response.datagram_count()
-                        << ", numbers: [";
+        response_stream << "{ "
+                        << "protocol_version: " << response.protocol_version()
+                        << ", error: " << response.error()
+                        << ", error_message: \"" << response.error_message()
+                        << "\" }";
+
+        return std::formatter<std::string>::format(response_stream.str(),
+                                                   context);
+    }
+};
+
+template <>
+struct std::formatter<protocol::NumberSequenceRequest>
+    : std::formatter<std::string> {
+    template <typename FormatContext>
+    auto format(const protocol::NumberSequenceRequest &request,
+                FormatContext &context) const {
+        std::ostringstream request_stream;
+        request_stream << "{ " << "number_count: " << request.number_count()
+                       << ", upper_bound: " << request.upper_bound() << " }";
+
+        return std::formatter<std::string>::format(request_stream.str(),
+                                                   context);
+    }
+};
+
+template <>
+struct std::formatter<protocol::NumberSequenceResponse>
+    : std::formatter<std::string> {
+    template <typename FormatContext>
+    auto format(const protocol::NumberSequenceResponse &response,
+                FormatContext &context) const {
+        std::ostringstream response_stream;
+        response_stream << "{ " << "number_count: " << response.number_count()
+                        << ", sequence_index: " << response.sequence_index()
+                        << ", sequence_count: " << response.sequence_count()
+                        << ", sequence_number_count: "
+                        << response.sequence_number_count() << ", numbers: [";
 
         // response_stream << "...";
 
@@ -68,11 +78,28 @@ struct std::formatter<protocol::NumberResponse> : std::formatter<std::string> {
             }
         }
 
-        response_stream << "]" << ", error: " << response.error()
+        response_stream << "]" << ", checksum: " << response.checksum()
+                        << ", error: " << response.error()
                         << ", error_message: \"" << response.error_message()
                         << "\" }";
 
         return std::formatter<std::string>::format(response_stream.str(),
+                                                   context);
+    }
+};
+
+template <>
+struct std::formatter<protocol::NumberSequenceAckRequest>
+    : std::formatter<std::string> {
+    template <typename FormatContext>
+    auto format(const protocol::NumberSequenceAckRequest &request,
+                FormatContext &context) const {
+        std::ostringstream request_stream;
+        request_stream << "{" << " sequence_index: " << request.sequence_index()
+                       << ", ack: " << request.ack()
+                       << ", checksum: " << request.checksum() << " }";
+
+        return std::formatter<std::string>::format(request_stream.str(),
                                                    context);
     }
 };

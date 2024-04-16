@@ -1,5 +1,7 @@
+#include "constants.hpp"
 #include "protocol.pb.h"
 #include "server/config.hpp"
+#include "utils/checksum.hpp"
 #include "utils/formatters.hpp"
 #include "utils/logger.hpp"
 #include "utils/options.hpp"
@@ -29,7 +31,9 @@ using boost::asio::use_awaitable_t;
 using boost::asio::ip::udp;
 using default_token = as_tuple_t<use_awaitable_t<>>;
 using udp_socket = default_token::as_default_on_t<udp::socket>;
+
 namespace this_coro = boost::asio::this_coro;
+using namespace protocol;
 
 class UDPRandomGeneratorServer {
 public:
@@ -38,7 +42,7 @@ public:
                              utils::Logger &logger)
         : io_context_{io_context},
           socket_{io_context, udp::endpoint{udp::v4(), config.port()}},
-          buffer_(DATAGRAM_SIZE, '\0'), logger_{logger} {
+          buffer_(MESSAGE_MAX_SIZE, '\0'), logger_{logger} {
         socket_.set_option(boost::asio::socket_base::reuse_address(true));
     }
 
@@ -57,35 +61,35 @@ public:
 
 private:
     using NumberType = std::remove_cvref_t<
-        decltype(std::declval<protocol::NumberResponse>().numbers().Get(0))>;
+        decltype(std::declval<NumberSequenceResponse>().numbers().Get(0))>;
 
     awaitable<void> run() {
+        using namespace protocol;
+
         for (;;) {
             try {
-                const auto request = co_await accept_request();
+                const auto version_request =
+                    co_await receive_request<ProtocolVersionRequest>();
 
-                if (const auto result = validate_request(request);
-                    result == protocol::Error::OK) {
-                    init_sender(request.number_count());
-                    const auto datagram_count =
-                        get_datagram_count(request.number_count());
+                const auto version_response =
+                    create_protocol_version_response(version_request);
+                co_await send_response(version_response);
 
-                    for (uint64_t datagram_index{0};
-                         datagram_index < datagram_count; ++datagram_index) {
-                        auto response =
-                            create_response(request.number_count(),
-                                            datagram_index, datagram_count);
+                if (version_response.error() !=
+                    ProtocolVersionError::VERSION_OK) {
+                    continue;
+                }
 
-                        process_request(request, response);
-                        co_await send_response(response);
-                    }
+                const auto number_request =
+                    co_await receive_request<NumberSequenceRequest>();
 
-                    free_sender();
-                } else {
-                    auto response =
-                        create_response(request.number_count(), 0, 0);
-                    set_error(response, result);
-                    co_await send_response(response);
+                const auto sequence_count =
+                    get_sequence_count(number_request.number_count());
+
+                for (uint64_t sequence_index{0};
+                     sequence_index < sequence_count; ++sequence_index) {
+                    co_await send_number_sequence_response(
+                        number_request, sequence_index, sequence_count);
                 }
             } catch (std::exception &error) {
                 logger_.log("Exception: {}", error.what());
@@ -93,9 +97,36 @@ private:
         }
     }
 
-    awaitable<protocol::NumberRequest> accept_request() {
-        protocol::NumberRequest request;
+    awaitable<void>
+    send_number_sequence_response(const NumberSequenceRequest &sequence_request,
+                                  uint64_t sequence_index,
+                                  uint64_t sequence_count) {
+        const auto sequence_response = create_number_sequence_response(
+            sequence_request, sequence_index, sequence_count);
 
+        for (uint8_t retry_index{0};
+             retry_index <= SEQUENCE_RESPONSE_MAX_RETRIES_COUNT;
+             ++retry_index) {
+            co_await send_response(sequence_response);
+
+            const auto ack_request =
+                co_await receive_request<NumberSequenceAckRequest>();
+
+            if (ack_request.ack() == NumberSequenceAck::ACK_OK) {
+                co_return;
+            } else {
+                logger_.log(
+                    "Failed to acknowledge number sequence {}. Expected "
+                    "checksum: {}. Actual checksum: {}. Retry: {}",
+                    sequence_response.sequence_index(),
+                    sequence_response.checksum(), ack_request.checksum(),
+                    retry_index);
+            }
+        }
+    }
+
+    template <typename RequestType> awaitable<RequestType> receive_request() {
+        buffer_.resize(buffer_.capacity());
         const auto [request_error, request_length] =
             co_await socket_.async_receive_from(
                 boost::asio::buffer(buffer_.data(), buffer_.size()),
@@ -113,14 +144,17 @@ private:
         }
 
         buffer_.resize(request_length);
+        RequestType request;
         request.ParseFromString(buffer_);
+
         logger_.log("Received request from {}\nRequest: {}",
                     sender_endpoint_.address().to_v4().to_string(), request);
 
         co_return request;
     }
 
-    awaitable<void> send_response(const protocol::NumberResponse &response) {
+    template <typename ResponseType>
+    awaitable<void> send_response(const ResponseType &response) {
         logger_.log("Sending response to {}\nResponse: {}",
                     sender_endpoint_.address().to_v4().to_string(), response);
 
@@ -143,92 +177,105 @@ private:
         }
     }
 
-    void process_request(const protocol::NumberRequest &request,
-                         protocol::NumberResponse &response) {
-        auto numbers = response.mutable_numbers();
-        const auto datagram_number_count = response.datagram_number_count();
-        numbers->Reserve(datagram_number_count);
-
-        add_random_numbers(numbers, datagram_number_count,
-                           request.upper_bound());
-    }
-
-    protocol::Error validate_request(const protocol::NumberRequest &request) {
-        if (request.protocol_version() < PROTOCOL_VERSION) {
-            return protocol::Error::CLIENT_TOO_OLD;
-        } else if (request.protocol_version() > PROTOCOL_VERSION) {
-            return protocol::Error::CLIENT_TOO_NEW;
-        }
-
-        if (request.upper_bound() < 0) {
-            return protocol::Error::INVALID_UPPER_BOUND;
-        }
-
-        return protocol::Error::OK;
-    }
-
-    protocol::NumberResponse create_response(uint64_t number_count,
-                                             uint64_t datagram_index,
-                                             uint64_t datagram_count) {
-        protocol::NumberResponse response;
+    ProtocolVersionResponse
+    create_protocol_version_response(const ProtocolVersionRequest &request) {
+        ProtocolVersionResponse response;
         response.set_protocol_version(PROTOCOL_VERSION);
-        response.set_number_count(number_count);
-        response.set_datagram_index(datagram_index);
-        response.set_datagram_count(datagram_count);
+        response.set_error(ProtocolVersionError::VERSION_OK);
 
-        auto datagram_number_count = get_max_datagram_number_count();
-        if (datagram_index == (datagram_count - 1)) {
-            datagram_number_count = number_count % datagram_number_count;
+        if (request.protocol_version() < PROTOCOL_VERSION) {
+            response.set_error(ProtocolVersionError::CLIENT_TOO_OLD);
+        } else if (request.protocol_version() > PROTOCOL_VERSION) {
+            response.set_error(ProtocolVersionError::CLIENT_TOO_NEW);
         }
 
-        response.set_datagram_number_count(datagram_number_count);
-
-        return response;
-    }
-
-    void set_error(protocol::NumberResponse &response, protocol::Error error) {
-        response.set_error(error);
-
-        switch (error) {
-        case protocol::Error::OK:
+        switch (response.error()) {
+        case ProtocolVersionError::VERSION_OK:
             break;
-        case protocol::Error::CLIENT_TOO_OLD:
+        case ProtocolVersionError::CLIENT_TOO_OLD:
             response.set_error_message(std::format(
                 "Client is too old. Minimum supported version is {}",
                 PROTOCOL_VERSION));
             break;
-        case protocol::Error::CLIENT_TOO_NEW:
+        case ProtocolVersionError::CLIENT_TOO_NEW:
             response.set_error_message(std::format(
                 "Client is too new. Maximum supported version is {}",
                 PROTOCOL_VERSION));
             break;
-        case protocol::Error::INVALID_UPPER_BOUND:
-            response.set_error_message(
-                "Invalid upper bound. Value should be greater than zero");
         default:
             std::unreachable();
         }
+
+        return response;
     }
 
-    uint64_t get_max_datagram_number_count() {
-        return ((DATAGRAM_SIZE - protocol::NumberResponse{}.ByteSizeLong()) /
-                sizeof(NumberType)) -
-               1;
-    }
+    NumberSequenceResponse
+    create_number_sequence_response(const NumberSequenceRequest &request,
+                                    uint64_t sequence_index,
+                                    uint64_t sequence_count) {
+        NumberSequenceResponse response;
 
-    uint64_t get_datagram_count(uint64_t number_count) {
-        const auto max_datagram_number_count = get_max_datagram_number_count();
+        response.set_number_count(request.number_count());
+        response.set_upper_bound(request.upper_bound());
+        response.set_sequence_index(sequence_index);
+        response.set_sequence_count(sequence_count);
 
-        auto datagram_count = (number_count / max_datagram_number_count);
-        if ((number_count % max_datagram_number_count) != 0) {
-            ++datagram_count;
+        auto sequence_number_count = get_sequence_max_number_count();
+        if (sequence_index == (sequence_count - 1)) {
+            sequence_number_count =
+                request.number_count() % sequence_number_count;
         }
 
-        return datagram_count;
+        response.set_sequence_number_count(sequence_number_count);
+
+        if (request.upper_bound() < 0) {
+            response.set_error(NumberSequenceError::INVALID_UPPER_BOUND);
+            response.set_error_message("Upper bound must be greater than zero");
+
+            return response;
+        }
+
+        response.mutable_numbers()->Reserve(sequence_number_count);
+
+        add_random_numbers(response);
+        response.set_checksum(utils::calculate_checksum(response.numbers()));
+
+        return response;
     }
 
-    void add_random_numbers(auto numbers, size_t number_count,
-                            double upper_bound) {
+    uint64_t get_sequence_max_number_count() {
+        NumberSequenceResponse response;
+        response.set_number_count(0);
+        response.set_upper_bound(0);
+        response.set_sequence_index(0);
+        response.set_sequence_count(0);
+        response.set_sequence_number_count(0);
+        response.set_checksum(0);
+        response.clear_error();
+        response.clear_error_message();
+
+        const size_t number_type_size = sizeof(NumberType);
+        const size_t overhead_per_number = 2;
+
+        return ((MESSAGE_MAX_SIZE - response.ByteSizeLong()) /
+                (number_type_size + overhead_per_number));
+    }
+
+    uint64_t get_sequence_count(uint64_t number_count) {
+        const auto sequence_max_number_count = get_sequence_max_number_count();
+
+        auto sequence_count = (number_count / sequence_max_number_count);
+        if ((number_count % sequence_max_number_count) != 0) {
+            ++sequence_count;
+        }
+
+        return sequence_count;
+    }
+
+    void add_random_numbers(NumberSequenceResponse &response) {
+        auto number_count = response.sequence_number_count();
+        const auto upper_bound = response.upper_bound();
+
         std::random_device device;
         std::mt19937 generator{device()};
         std::uniform_real_distribution<double> distribution{-upper_bound,
@@ -251,7 +298,7 @@ private:
                     std::format("Failed to generate unique number. "
                                 "Maximum retries exceeded")};
             } else {
-                numbers->Add(number);
+                response.mutable_numbers()->Add(number);
                 client_numbers.insert(number);
             }
         }
@@ -266,7 +313,6 @@ private:
 
 private:
     static constexpr uint32_t PROTOCOL_VERSION{1};
-    static constexpr uint32_t DATAGRAM_SIZE{508};
 
     boost::asio::io_context &io_context_;
     udp_socket socket_;
