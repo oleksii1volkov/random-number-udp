@@ -14,10 +14,8 @@
 #include <boost/asio/ip/udp.hpp>
 #include <boost/asio/signal_set.hpp>
 
-#include <atomic>
 #include <concepts>
 #include <limits>
-#include <print>
 #include <random>
 #include <thread>
 #include <unordered_map>
@@ -354,7 +352,7 @@ int main(int argc, char *argv[]) {
 
         io_context.run();
     } catch (std::exception &error) {
-        std::println(std::cerr, "Exception: {}\n", error.what());
+        utils::println(std::cerr, "Exception: {}\n", error.what());
         return 1;
     }
 

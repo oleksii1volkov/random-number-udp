@@ -18,7 +18,7 @@
 #include <execution>
 #include <filesystem>
 #include <fstream>
-#include <print>
+#include <thread>
 
 using boost::asio::as_tuple_t;
 using boost::asio::awaitable;
@@ -345,7 +345,7 @@ int main(int argc, char *argv[]) {
 
         std::jthread io_thread([&]() { io_context.run(); });
     } catch (std::exception &error) {
-        std::println(std::cerr, "Exception: {}", error.what());
+        utils::println(std::cerr, "Exception: {}", error.what());
     }
 
     return 0;
