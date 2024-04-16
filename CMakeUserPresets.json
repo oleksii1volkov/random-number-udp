@@ -4,6 +4,6 @@
         "conan": {}
     },
     "include": [
-        "D:\\dev\\projects\\cpp\\net\\udp\\build\\CMakePresets.json"
+        "D:\\dev\\projects\\cpp\\net\\random-number-udp\\build\\CMakePresets.json"
     ]
 }

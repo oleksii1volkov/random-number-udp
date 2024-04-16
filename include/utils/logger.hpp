@@ -2,8 +2,8 @@
 
 #include <chrono>
 #include <filesystem>
+#include <format>
 #include <fstream>
-#include <print>
 #include <sstream>
 
 namespace utils {
@@ -21,6 +21,20 @@ std::string get_current_time_string() {
 }
 
 } // namespace
+
+template <typename... Args>
+void println(std::ostream &stream, std::format_string<Args...> format,
+             Args &&...args) {
+    const auto entry =
+        std::format("{}", std::format(format, std::forward<Args>(args)...));
+
+    stream << entry << "\n";
+}
+
+template <typename... Args>
+void println(std::format_string<Args...> format, Args &&...args) {
+    utils::println(std::cout, std::move(format), std::forward<Args>(args)...);
+}
 
 class Logger {
 public:
@@ -49,7 +63,7 @@ public:
             std::format("[{}] {}", get_current_time_string(),
                         std::format(format, std::forward<Args>(args)...));
 
-        std::println("{}", entry);
+        utils::println("{}", entry);
         if (log_file_.is_open()) {
             log_file_ << entry << std::endl;
         }

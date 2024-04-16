@@ -1,9 +1,20 @@
-cmake_minimum_required(VERSION 3.28)
+cmake_minimum_required(VERSION 3.22.1)
 
 project("udp")
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+if(WIN32)
+    set(CMAKE_C_COMPILER "cl.exe")
+    set(CMAKE_CXX_COMPILER "cl.exe")
+elseif(APPLE)
+    set(CMAKE_C_COMPILER "clang-18")
+    set(CMAKE_CXX_COMPILER "clang++-18")
+elseif(UNIX AND NOT APPLE)
+    set(CMAKE_C_COMPILER "clang-18")
+    set(CMAKE_CXX_COMPILER "clang++-18")
+endif()
 
 find_package(Boost 1.84 REQUIRED COMPONENTS system coroutine)
 find_package(Protobuf REQUIRED)
@@ -27,6 +38,12 @@ file(GLOB_RECURSE UTILS_SOURCE_FILES "${UTILS_SOURCE_DIR}/*.cpp")
 
 file(GLOB_RECURSE PROTO_FILES "${INCLUDE_DIR}/proto/*.proto")
 protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS ${PROTO_FILES})
+
+if(CMAKE_BUILD_TYPE MATCHES Debug)
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/Debug)
+elseif(CMAKE_BUILD_TYPE MATCHES Release)
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/Release)
+endif()
 
 # Server executable
 add_executable(udp_server ${SERVER_SOURCE_FILES} ${UTILS_SOURCE_FILES} ${PROTO_SRCS} ${PROTO_HDRS})
