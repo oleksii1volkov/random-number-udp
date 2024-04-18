@@ -5,7 +5,7 @@ This project includes a UDP server that generates random numbers and sends them 
 ## Project Structure
 
 - `src/server/main.cpp`: UDP server that generates and sends random numbers.
-- `src/client.main.cpp`: UDP client that receives numbers, sorts them, and writes to a file.
+- `src/client/main.cpp`: UDP client that receives numbers, sorts them, and writes to a file.
 
 ## Setup and Running
 
