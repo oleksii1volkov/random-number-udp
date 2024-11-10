@@ -4,24 +4,27 @@ This project includes a UDP server that generates random numbers and sends them 
 
 ## Project Structure
 
-- `src/server/main.cpp`: UDP server that generates and sends random numbers.
-- `src/client/main.cpp`: UDP client that receives numbers, sorts them, and writes to a file.
+-   `src/server/main.cpp`: UDP server that generates and sends random numbers.
+-   `src/client/main.cpp`: UDP client that receives numbers, sorts them, and writes to a file.
 
 ## Setup and Running
 
 ### Prerequisites
 
-- Python 3.x
-- CMake 3.21
-- Conan 2.2.2
-- MSVC 193, Clang 18
+-   Python 3.x
+-   CMake 3.21
+-   Conan 2.2.2
+-   MSVC 193, Clang 18
 
 ### Installation
 
 1. Clone the repository to your local machine:
-   ```bash
-   git clone https://github.com/your-repository/random-number-udp.git
-   cd random-number-udp
+
+    ```bash
+    git clone https://github.com/your-repository/random-number-udp.git
+    cd random-number-udp
+
+    ```
 
 2. Run `.\install_prerequisites.sh` to install dependencies.
 
